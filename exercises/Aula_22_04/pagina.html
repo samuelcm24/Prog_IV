@@ -1,2 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokédex - Consumo de API</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
 
-adsnsa
+    body {
+      background: linear-gradient(135deg, #2b1055, #7597de);
+      min-height: 100vh;
+      padding: 30px;
+      color: white;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 25px;
+    }
+
+    .controls input,
+    .controls button {
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    .controls input {
+      min-width: 220px;
+    }
+
+    .controls button {
+      background-color: #ffcb05;
+      color: #222;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .controls button:hover {
+      transform: scale(1.05);
+    }
+
+    #loading {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      transition: 0.2s;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card img {
+      width: 120px;
+      height: 120px;
+      image-rendering: pixelated;
+    }
+
+    .card h3 {
+      margin: 10px 0 8px;
+      text-transform: capitalize;
+    }
+
+    .card p {
+      font-size: 14px;
+      opacity: 0.95;
+      text-transform: capitalize;
+    }
+
+    .mensagem {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      padding: 20px;
+    }
+
+    .modal.ativo {
+      display: flex;
+    }
+
+    .modal-card {
+      position: relative;
+      background: linear-gradient(135deg, #4b2e83, #6a5acd);
+      width: 100%;
+      max-width: 380px;
+      border-radius: 20px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      animation: aparecer 0.25s ease;
+    }
+
+    .modal-card img {
+      width: 160px;
+      height: 160px;
+      image-rendering: pixelated;
+      margin-bottom: 10px;
+    }
+
+    .modal-card h2 {
+      text-transform: capitalize;
+      margin-bottom: 12px;
+    }
+
+    .modal-card p {
+      margin: 8px 0;
+      font-size: 16px;
+      text-transform: capitalize;
+    }
+
+    .fechar {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+    }
+
+    .fechar:hover {
+      color: #ffcb05;
+    }
+
+    @keyframes aparecer {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pokédex</h1>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Buscar Pokémon por nome ou ID">
+    <button onclick="buscarPokemon()">Buscar</button>
+  </div>
+
+  <div id="loading">Carregando Pokémons...</div>
+  <div class="grid" id="pokedex"></div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal" onclick="fecharModal(event)">
+    <div class="modal-card" id="modal-card">
+      <span class="fechar" onclick="fecharModalDireto()">&times;</span>
+      <img id="modal-img" src="" alt="">
+      <h2 id="modal-name"></h2>
+      <p id="modal-id"></p>
+      <p id="modal-types"></p>
+      <p id="modal-height"></p>
+      <p id="modal-weight"></p>
+      <p id="modal-abilities"></p>
+    </div>
+  </div>
+
+  <script>
+    const pokedex = document.getElementById('pokedex');
+    const loading = document.getElementById('loading');
+    const modal = document.getElementById('modal');
+
+    let listaPokemons = [];
+
+    async function carregarPokemons() {
+      listaPokemons = [];
+      loading.textContent = 'Carregando Pokémons...';
+      pokedex.innerHTML = '';
+
+      try {
+        for (let i = 1; i <= 100; i++) {
+          const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${i}`);
+          const data = await res.json();
+          listaPokemons.push(data);
+        }
+
+        renderizar(listaPokemons);
+      } catch (erro) {
+        pokedex.innerHTML = '<p class="mensagem">Erro ao carregar os Pokémons.</p>';
+      } finally {
+        loading.textContent = '';
+      }
+    }
+
+    function renderizar(lista) {
+      pokedex.innerHTML = '';
+
+      if (lista.length === 0) {
+        pokedex.innerHTML = '<p class="mensagem">Nenhum Pokémon encontrado.</p>';
+        return;
+      }
+
+      lista.forEach(p => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+
+        card.innerHTML = `
+          <img src="${p.sprites.front_default}" alt="${p.name}">
+          <h3>${p.name}</h3>
+          <p>ID: ${p.id}</p>
+          <p>Tipo(s): ${p.types.map(t => t.type.name).join(', ')}</p>
+        `;
+
+        card.addEventListener('click', () => abrirModal(p));
+        pokedex.appendChild(card);
+      });
+    }
+
+    function abrirModal(pokemon) {
+      document.getElementById('modal-img').src = pokemon.sprites.front_default;
+      document.getElementById('modal-img').alt = pokemon.name;
+      document.getElementById('modal-name').textContent = pokemon.name;
+      document.getElementById('modal-id').textContent = `ID: ${pokemon.id}`;
+      document.getElementById('modal-types').textContent = `Tipo(s): ${pokemon.types.map(t => t.type.name).join(', ')}`;
+      document.getElementById('modal-height').textContent = `Altura: ${pokemon.height}`;
+      document.getElementById('modal-weight').textContent = `Peso: ${pokemon.weight}`;
+      document.getElementById('modal-abilities').textContent = `Habilidades: ${pokemon.abilities.map(a => a.ability.name).join(', ')}`;
+
+      modal.classList.add('ativo');
+    }
+
+    function fecharModal(event) {
+      if (event.target === modal) {
+        modal.classList.remove('ativo');
+      }
+    }
+
+    function fecharModalDireto() {
+      modal.classList.remove('ativo');
+    }
+
+    async function buscarPokemon() {
+      const termo = document.getElementById('search').value.toLowerCase().trim();
+
+      if (!termo) {
+        renderizar(listaPokemons);
+        return;
+      }
+
+      loading.textContent = 'Buscando Pokémon...';
+
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${termo}`);
+        if (!res.ok) throw new Error('Pokémon não encontrado');
+
+        const data = await res.json();
+        renderizar([data]);
+      } catch (erro) {
+        pokedex.innerHTML = '<p class="mensagem">Pokémon não encontrado.</p>';
+      } finally {
+        loading.textContent = '';
+      }
+    }
+
+    carregarPokemons();
+  </script>
+</body>
+</html>
